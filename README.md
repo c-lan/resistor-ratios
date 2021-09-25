@@ -1,6 +1,6 @@
 # [Get data here](ratios.txt)
 
-Calculates all possible voltage ratios that could be created from 8-element.  
+Calculates all possible voltage ratios that could be created from 8-element network.  
 Error figures represent change of voltage ratio relative to change of resistance of each network element, in percent.  
 The lower the better.
 
