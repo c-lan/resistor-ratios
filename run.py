@@ -55,10 +55,13 @@ def num_resistors(*circuits):
     return sum(c.count('1') for c in circuits)
 
 
-def netlist_to_str(s):
+def netlist_to_str(s, out_node):
     strings = []
 
-    exp_to_netlist(s, 'vin', 'gnd', handler=lambda n1, n2: strings.append('%s_%s' % (n1, n2)))
+    def name(x):
+        return 'out' if str(x) == str(out_node) else x
+
+    exp_to_netlist(s, 'vin', 'gnd', handler=lambda n1, n2: strings.append('%s_%s' % (name(n1), name(n2))))
 
     return '(' + ','.join(strings) + ')'
 
@@ -90,14 +93,13 @@ for r1, r2 in itertools.product(values, repeat=2):
         continue
 
     for node, ratio, emax, eavg in simulate(r1, r2):
-        netlist = netlist_to_str('S(%s,%s)' % (r1, r2))
+        netlist = netlist_to_str('S(%s,%s)' % (r1, r2), node)
+        ratios.append((1 / float(ratio), netlist, int(emax), int(eavg)))
 
-        ratios.append((1 / float(ratio), netlist, node, int(emax), int(eavg)))
+ratios = [('{:6.3f}'.format(r[0]), r[1], r[2], r[3]) for r in ratios]
+ratios = sorted(ratios, key=lambda x: (x[0], x[2], x[3]), reverse=False)
 
-ratios = [('{:06.3f}'.format(r[0]), r[1], r[2], r[3], r[4]) for r in ratios]
-ratios = sorted(ratios, key=lambda x: (x[0], x[3], x[4]), reverse=False)
-
-print('%-07s %-60s %-5s %8s %8s' % ('V1/V2', 'netlist', 'node', 'MAX err', 'AVG err'))
+print('%-07s %-75s %8s %8s' % ('V1/V2', 'netlist', 'MAX err', 'AVG err'))
 
 for r in ratios:
-    print('%-07s %-60s %-5s %8.0f %8.0f' % r)
+    print('%-07s %-75s %8.0f %8.0f' % r)
