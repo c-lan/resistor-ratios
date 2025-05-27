@@ -35,7 +35,7 @@ def exp_to_netlist(s, n1, n2, handler):
     parse_child(expr, n1, n2)
 
 
-def calculate(r1, r2, values):
+def calculate_v(r1, r2, values):
     c = MNASolver()
     c.V('vin', c.gnd, 1)
 
@@ -45,10 +45,25 @@ def calculate(r1, r2, values):
 
     exp_to_netlist('S(%s,%s)' % (r1, r2), 'vin', c.gnd, handler=lambda n1, n2: add_node(c, n1, n2))
 
-    nodes = c.solve()
-    nodes.pop('vin')
+    return c.solve()
 
-    return nodes
+
+def calculate_rin(r1, r2):
+    c = MNASolver()
+    c.I('vin', c.gnd, 1)
+
+    exp_to_netlist('S(%s,%s)' % (r1, r2), 'vin', c.gnd, handler=lambda n1, n2: c.R(n1, n2, 1))
+
+    return c.solve()['vin']
+
+
+def calculate_rout(r1, r2, node):
+    c = MNASolver()
+    c.I(node, c.gnd, 1)
+
+    exp_to_netlist('S(%s,%s)' % (r1, r2), c.gnd, c.gnd, handler=lambda n1, n2: c.R(n1, n2, 1))
+
+    return c.solve()[node]
 
 
 def num_resistors(*circuits):
@@ -67,14 +82,17 @@ def netlist_to_str(s, out_node):
 
 
 def simulate(r1, r2):
-    base_values = calculate(r1, r2, [1] * num_resistors(r1, r2))
+    base_values = calculate_v(r1, r2, [1] * num_resistors(r1, r2))
+    rin = calculate_rin(r1, r2)
     errors = {}
+
+    base_values.pop('vin')
 
     for idx in range(num_resistors(r1, r2)):
         resistors = [1] * num_resistors(r1, r2)
         resistors[idx] = 1 + 100e-6
 
-        offset_values = calculate(r1, r2, resistors)
+        offset_values = calculate_v(r1, r2, resistors)
 
         for n in base_values.keys():
             if n not in errors:
@@ -83,7 +101,9 @@ def simulate(r1, r2):
             errors[n].append(abs(offset_values[n] - base_values[n]) / base_values[n] * 1e6)
 
     for k in base_values.keys():
-        yield k, base_values[k], max(errors[k]), sum(errors[k]) / len(errors[k])
+        rout = calculate_rout(r1, r2, k)
+
+        yield k, base_values[k], max(errors[k]), sum(errors[k]) / len(errors[k]), rin, rout
 
 values = [s.strip() for s in open('circuits.txt').readlines()]
 ratios = []
@@ -92,14 +112,26 @@ for r1, r2 in itertools.product(values, repeat=2):
     if not (4 <= num_resistors(r1, r2) <= 8):
         continue
 
-    for node, ratio, emax, eavg in simulate(r1, r2):
+    for node, ratio, emax, eavg, ru, rl in simulate(r1, r2):
         netlist = netlist_to_str('S(%s,%s)' % (r1, r2), node)
-        ratios.append((1 / float(ratio), netlist, int(emax), int(eavg)))
+        ratios.append((1 / float(ratio), netlist, round(emax), round(eavg), ru, rl))
 
-ratios = [('{:6.3f}'.format(r[0]), r[1], r[2], r[3]) for r in ratios]
+def render_row(row):
+    ratio, netlist, emax, eavg, rin, rout = row
+
+    return (
+        '{:6.3f}'.format(ratio),
+        netlist,
+        '{:8d}'.format(emax),
+        '{:8d}'.format(eavg),
+        '{:8.3f}'.format(rin),
+        '{:8.3f}'.format(rout)
+    )
+
+ratios = [render_row(r) for r in ratios]
 ratios = sorted(ratios, key=lambda x: (x[0], x[2], x[3]), reverse=False)
 
-print('%-07s %-75s %8s %8s' % ('V1/V2', 'netlist', 'MAX err', 'AVG err'))
+print('%07s %-75s %8s %8s %8s %8s' % ('V1/V2', 'netlist', 'MAX err', 'AVG err', 'Rin', 'Rout'))
 
 for r in ratios:
-    print('%-07s %-75s %8.0f %8.0f' % r)
+    print('%07s %-75s %8s %8s %8s %8s' % r)

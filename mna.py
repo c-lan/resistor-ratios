@@ -7,6 +7,7 @@ class MNASolver(object):
         self.node_names = []
         self.admittances = []
         self.sources_v = []
+        self.sources_i = []
         self.gnd = object()
         self.dtype = dtype or numpy.double
 
@@ -30,6 +31,13 @@ class MNASolver(object):
 
     def V(self, node1, node2, value):
         self.sources_v.append((
+            self._get_node_idx(node1),
+            self._get_node_idx(node2),
+            self.dtype(value)
+        ))
+
+    def I(self, node1, node2, value):
+        self.sources_i.append((
             self._get_node_idx(node1),
             self._get_node_idx(node2),
             self.dtype(value)
@@ -69,6 +77,14 @@ class MNASolver(object):
                 B[n2][idx] = -1
 
             e[idx] = val
+
+        for idx, data in enumerate(self.sources_i):
+            n1, n2, val = data
+
+            i[n1] = val
+
+            if n2 is not self.gnd:
+                i[n2] = -val
 
         C = numpy.transpose(B)
         D = numpy.zeros((M, M), dtype=self.dtype)
