@@ -81,7 +81,8 @@ class MNASolver(object):
         for idx, data in enumerate(self.sources_i):
             n1, n2, val = data
 
-            i[n1] = val
+            if n1 is not self.gnd:
+                i[n1] = val
 
             if n2 is not self.gnd:
                 i[n2] = -val
@@ -92,14 +93,7 @@ class MNASolver(object):
         A = numpy.concatenate((numpy.concatenate((G, B), axis=1), numpy.concatenate((C, D), axis=1)))
         z = numpy.concatenate((i, e))
 
-        # print(self.node_names)
-        # print(self.sources_v)
-        # sympy.pprint(A)
-        # print(numpy.linalg.inv(A))
-        # print(z)
-
         x = numpy.matmul(numpy.linalg.inv(A), z)[0:N]
-        # x = numpy.linalg.solve(A, z)[0:N]
         pairs = sorted(zip(self.node_names, x), key=lambda q: q[0])
 
         return {k: v[0] for k, v in pairs}
