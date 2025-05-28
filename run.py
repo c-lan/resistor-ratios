@@ -103,7 +103,7 @@ def simulate(r1, r2):
     for k in base_values.keys():
         rout = calculate_rout(r1, r2, k)
 
-        yield k, base_values[k], max(errors[k]), sum(errors[k]) / len(errors[k]), rin, rout
+        yield k, base_values[k], errors[k], rin, rout
 
 values = [s.strip() for s in open('circuits.txt').readlines()]
 ratios = []
@@ -112,16 +112,22 @@ for r1, r2 in itertools.product(values, repeat=2):
     if not (4 <= num_resistors(r1, r2) <= 8):
         continue
 
-    for node, ratio, emax, eavg, ru, rl in simulate(r1, r2):
+    for node, ratio, errors, rin, rout in simulate(r1, r2):
         netlist = netlist_to_str('S(%s,%s)' % (r1, r2), node)
-        ratios.append((1 / float(ratio), netlist, round(emax), round(eavg), ru, rl))
+        ratios.append((1 / float(ratio), netlist, errors, rin, rout))
 
 def render_row(row):
-    ratio, netlist, emax, eavg, rin, rout = row
+    ratio, netlist, errors, rin, rout = row
+
+    emax = round(max(errors))
+    eavg = round(sum(errors) / len(errors))
+
+    errors_s = ' '.join('%-2d' % round(e) for e in errors)
 
     return (
         '{:6.3f}'.format(ratio),
         netlist,
+        errors_s,
         '{:8d}'.format(emax),
         '{:8d}'.format(eavg),
         '{:8.3f}'.format(rin),
@@ -129,9 +135,7 @@ def render_row(row):
     )
 
 ratios = [render_row(r) for r in ratios]
-ratios = sorted(ratios, key=lambda x: (x[0], x[2], x[3]), reverse=False)
+ratios = sorted(ratios, key=lambda x: (x[0], x[3], x[4]), reverse=False)
 
-print('%07s %-75s %8s %8s %8s %8s' % ('V1/V2', 'netlist', 'MAX err', 'AVG err', 'Rin', 'Rout'))
-
-for r in ratios:
-    print('%07s %-75s %8s %8s %8s %8s' % r)
+for r in [('V1/V2', 'netlist', 'errors', 'MAX err', 'AVG err', 'Rin', 'Rout')] + ratios:
+    print('%07s %-75s %-24s %8s %8s %8s %8s' % r)
