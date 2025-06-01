@@ -140,7 +140,7 @@ def render_row(row):
     )
 
 ratios = [render_row(r) for r in ratios]
-ratios = sorted(ratios, key=lambda x: (x[0], x[3], x[4]), reverse=False)
+ratios = sorted(ratios, key=lambda x: (x[0], x[4], x[5]), reverse=False)
 
 for r in [('V1/V2', 'N', 'netlist', 'errors', 'MAX err', 'AVG err', 'Rin', 'Rout')] + ratios:
     print('%07s %02s %-100s %-50s %8s %8s %8s %8s' % r)
