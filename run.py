@@ -98,18 +98,21 @@ def simulate(r1, r2):
             if n not in errors:
                 errors[n] = []
 
-            errors[n].append(abs(offset_values[n] - base_values[n]) / base_values[n] * 1e6)
+            errors[n].append((offset_values[n] - base_values[n]) / base_values[n] * 1e6)
 
     for k in base_values.keys():
         rout = calculate_rout(r1, r2, k)
 
         yield k, base_values[k], errors[k], rin, rout
 
-values = [s.strip() for s in open('circuits.txt').readlines()]
+circuits = [s.strip() for s in open('circuits.txt').readlines()]
 ratios = []
+max_resistors = max(num_resistors(c) for c in circuits) + 1
 
-for r1, r2 in itertools.product(values, repeat=2):
-    if not (4 <= num_resistors(r1, r2) <= 8):
+assert max_resistors >= 4
+
+for r1, r2 in itertools.product(circuits, repeat=2):
+    if not (4 <= num_resistors(r1, r2) <= max_resistors):
         continue
 
     for node, ratio, errors, rin, rout in simulate(r1, r2):
@@ -119,13 +122,15 @@ for r1, r2 in itertools.product(values, repeat=2):
 def render_row(row):
     ratio, netlist, errors, rin, rout = row
 
-    emax = round(max(errors))
-    eavg = round(sum(errors) / len(errors))
+    errors_abs = [abs(e) for e in errors]
+    emax = round(max(errors_abs))
+    eavg = round(sum(errors_abs) / len(errors))
 
-    errors_s = ' '.join('%-2d' % round(e) for e in errors)
+    errors_s = ' '.join('{:<+3.0f}'.format(e) for e in errors)
 
     return (
-        '{:6.3f}'.format(ratio),
+        '{:7.3f}'.format(ratio),
+        len(errors),
         netlist,
         errors_s,
         '{:8d}'.format(emax),
@@ -137,5 +142,5 @@ def render_row(row):
 ratios = [render_row(r) for r in ratios]
 ratios = sorted(ratios, key=lambda x: (x[0], x[3], x[4]), reverse=False)
 
-for r in [('V1/V2', 'netlist', 'errors', 'MAX err', 'AVG err', 'Rin', 'Rout')] + ratios:
-    print('%07s %-75s %-24s %8s %8s %8s %8s' % r)
+for r in [('V1/V2', 'N', 'netlist', 'errors', 'MAX err', 'AVG err', 'Rin', 'Rout')] + ratios:
+    print('%07s %02s %-100s %-50s %8s %8s %8s %8s' % r)
